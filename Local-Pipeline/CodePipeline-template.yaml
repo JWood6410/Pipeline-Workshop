@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Pipeline for MyAppNameHere
+# This is a template to use for creating pipelines.
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: "Standard Details"
+      Parameters:
+        - AppName
+        - Environment
+        - RemoteApp
+        - RemoteEnv
+    - Label:
+        default: "Remote Role info"
+      Parameters:
+        - CfnRole
+        - CrossRole
+    - Label:
+        default: "Others"
+      Parameters:
+        - Branch
+
+Parameters:
+  AppName:
+    Type: String
+    Default: infra
+    Description: Name of the local application. Same as Pipeline Global.
+  Environment:
+    Type: String
+    Default: shared-services
+    Description: This is the name of the LOCAL environment.
+    AllowedValues:
+    - dev
+    - test
+    - prod
+    - shared-services
+  RemoteApp:
+    Type: String
+    Default: infra
+    Description: Name of the Remote application (lowercase).
+  RemoteEnv:
+    Type: String
+    Default: dev
+    Description: This is the name of the Remote environment.
+    AllowedValues:
+    - dev
+    - test
+    - prod
+    - shared-services
+  Branch:
+    Type: String
+    Description: Name of the branch
+  CfnRole:
+    Type: String
+    Description: ARN for the be used by CloudFormation
+  CrossRole:
+    Type: String
+    Description: ARN for the Pipeline cross-account role
+
+Resources:
+
+# A Rple to allow EventBridge to kick off CodePipeline
+  AmazonCloudWatchEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        -
+          PolicyName: cwe-pipeline-execution
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource: !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref Pipeline ] ] 
+
+  # Create the EventBus rule to trigger the pipeline
+  AmazonCloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - !Join [ '', [ 'arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', Fn::ImportValue: !Sub "${AppName}-${Environment}-RepoName" ] ]
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref Branch
+      Targets:
+        -
+          Arn: 
+            !Join [ '', [ 'arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref Pipeline ] ]
+          RoleArn: !GetAtt AmazonCloudWatchEventRole.Arn
+          Id: !Sub codepipeline-${RemoteEnv}-Pipeline        
+
+  # CodePipeline with its stages:
+  Pipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      Name: !Join [ "-", [!Ref 'RemoteApp', !Ref 'RemoteEnv', 'Pipeline'] ]
+      ArtifactStores:
+        - ArtifactStore:
+            Location:
+              Fn::ImportValue: !Sub "${AppName}-${Environment}-Bucket"
+            Type: S3
+            EncryptionKey:
+              Id:
+                Fn::ImportValue: !Sub "${AppName}-${Environment}-KeyArn"
+              Type: KMS
+          Region: !Ref "AWS::Region"
+
+      RestartExecutionOnUpdate: false
+      RoleArn:
+        Fn::ImportValue: !Sub "${AppName}-${Environment}-PipeRole"
+      Stages:
+        # Stage 1:  Get the source from CodeCommit
+        - Name: Source
+          Actions:
+            - Name: Source
+              RunOrder: 1
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: '1'
+              Configuration:
+                RepositoryName:
+                  Fn::ImportValue: !Sub "${RemoteApp}-${Environment}-RepoName"
+                BranchName: !Ref Branch
+                PollForSourceChanges: false #The EventBus rule will trigger the pipeline
+              InputArtifacts: []
+              OutputArtifacts:
+                - Name: CfnTemplates
+        # Stage 2:  First items
+        - Name: First_items
+          Actions:
+            - Name: FirstItem
+              RunOrder: 1
+              InputArtifacts:
+                - Name: CfnTemplates
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_NAMED_IAM
+                StackName: !Sub "${RemoteApp}-${RemoteEnv}-test"
+                RoleArn: !Ref CfnRole
+                TemplatePath: CfnTemplates::SSM-test.yaml
+                TemplateConfiguration: !Sub "CfnTemplates::config-files/config-template-${RemoteEnv}.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "AppName" : "${RemoteApp}",
+                    "Environment" : "${RemoteEnv}"
+                  }
+              RoleArn: !Ref CrossRole
+              OutputArtifacts:
+                - Name: cf_routes53
+
+Outputs:
+ Pipeline:
+  Description: CodePipeline name.
+  Value: !Ref Pipeline
+  Export:
+    Name: !Join ['-', [!Ref RemoteApp, !Ref Environment, 'PipeName']]
