@@ -30,11 +30,9 @@ Parameters:
     Description: An environment name that is prefixed to resource names
     AllowedValues:
     - dev
-    - preprod
-    - prod
     - test
+    - prod
     - shared-services
-    - shared-network
 
   ArtifactBucket:
     Type: String

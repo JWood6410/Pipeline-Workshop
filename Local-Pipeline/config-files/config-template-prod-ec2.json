@@ -1,0 +1,10 @@
+{
+  "Parameters" : {
+    "InstanceType" : "t3.large",
+    "VolumeSize" : "100",    
+    "AMIId" : "ami-0e326862c8e74c0fe",
+    "KeyName" : "awsorg03-syd-key",
+    "ServerSubnet" : "subnet-04da8314f8a5edd3e",
+    "EC2SecurityGroupIds" : "sg-0b4600b2d9c7dcb50"
+  }
+}

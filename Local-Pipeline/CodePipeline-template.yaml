@@ -96,7 +96,7 @@ Resources:
         detail-type:
           - 'CodeCommit Repository State Change'
         resources:
-          - !Join [ '', [ 'arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', Fn::ImportValue: !Sub "${AppName}-${Environment}-RepoName" ] ]
+          - !Join [ '', [ 'arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', Fn::ImportValue: !Sub "${RemoteApp}-${Environment}-RepoName" ] ]
         detail:
           event:
             - referenceCreated
@@ -150,10 +150,10 @@ Resources:
               InputArtifacts: []
               OutputArtifacts:
                 - Name: CfnTemplates
-        # Stage 2:  First items
-        - Name: First_items
+        # Stage 2:  Resources
+        - Name: Resources
           Actions:
-            - Name: FirstItem
+            - Name: Instances
               RunOrder: 1
               InputArtifacts:
                 - Name: CfnTemplates
@@ -167,8 +167,8 @@ Resources:
                 Capabilities: CAPABILITY_NAMED_IAM
                 StackName: !Sub "${RemoteApp}-${RemoteEnv}-test"
                 RoleArn: !Ref CfnRole
-                TemplatePath: CfnTemplates::SSM-test.yaml
-                TemplateConfiguration: !Sub "CfnTemplates::config-files/config-template-${RemoteEnv}.json"
+                TemplatePath: CfnTemplates::ec2-test.yaml
+                TemplateConfiguration: !Sub "CfnTemplates::config-files/config-template-${RemoteEnv}-ec2.json"
                 ParameterOverrides: !Sub |
                   {
                     "AppName" : "${RemoteApp}",
@@ -176,11 +176,11 @@ Resources:
                   }
               RoleArn: !Ref CrossRole
               OutputArtifacts:
-                - Name: cf_routes53
+                - Name: cf_ec2
 
 Outputs:
  Pipeline:
   Description: CodePipeline name.
   Value: !Ref Pipeline
   Export:
-    Name: !Join ['-', [!Ref RemoteApp, !Ref Environment, 'PipeName']]
+    Name: !Join ['-', [!Ref RemoteApp, !Ref RemoteEnv, 'PipeName']]
