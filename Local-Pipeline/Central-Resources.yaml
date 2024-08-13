@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: KMS Key, S3 bucket & role to use with all pipelines
 # Using the same KMS key and S3 bucket simplifies resources and saves
-# money. Haveing only one S3 bucket and using folders for each pipeline
+# money. Using only one S3 bucket and having folders for each pipeline
 # means there is only one place to look for artifacts. It also means
 # that only one KMS key is needed, which saves money.
 
@@ -29,11 +29,9 @@ Parameters:
     Description: An environment name that is prefixed to resource names
     AllowedValues:
     - dev
-    - preprod
-    - prod
     - test
+    - prod
     - shared-services
-    - shared-network
   OrgID:
     Type: String
     Description: Enter the Organisation ID.
