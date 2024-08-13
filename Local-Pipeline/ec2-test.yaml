@@ -1,6 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description:  EC2 template for RISE App server
-# Description: This template is deployed in Codan
+Description:  Basic EC2 template
 
 Metadata:
   'AWS::CloudFormation::Interface':
@@ -41,7 +40,7 @@ Parameters:
     Description: Enter the size of the Root volume in GB.  
   AMIId:
     Type: AWS::EC2::Image::Id
-    Description: Please enter the Codan amiid for the ec2 instaces to use
+    Description: Please enter the amiid for the ec2 instaces to use
     Default: ami-0921802cb0717d0da
   InstanceType:
     Type: String

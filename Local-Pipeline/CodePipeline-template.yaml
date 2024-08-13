@@ -54,14 +54,14 @@ Parameters:
     Description: Name of the branch
   CfnRole:
     Type: String
-    Description: ARN for the be used by CloudFormation
+    Description: ARN for the role to be used by CloudFormation
   CrossRole:
     Type: String
     Description: ARN for the Pipeline cross-account role
 
 Resources:
 
-# A Rple to allow EventBridge to kick off CodePipeline
+# A Role to allow EventBridge to kick off CodePipeline
   AmazonCloudWatchEventRole:
     Type: AWS::IAM::Role
     Properties:
